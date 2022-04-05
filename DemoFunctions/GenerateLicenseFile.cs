@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 
@@ -10,11 +11,17 @@ namespace DemoFunctions
     public static class GenerateLicenseFile
     {
         [FunctionName("GenerateLicenseFile")]
-        public static void Run(
+        public static async Task Run(
             [QueueTrigger("orders")] Order order,
-            [Blob("licenses/{rand-guid}.lic")] TextWriter outputBlob,
+            IBinder binder,
             ILogger log)
         {
+            var outputBlob = await binder.BindAsync<TextWriter>(
+                new BlobAttribute($"licenses/{order.OrderId}.lic")
+                {
+                    Connection = "AzureWebJobsStorage"
+                });
+
             outputBlob.WriteLine($"OrderId: {order.OrderId}");
             outputBlob.WriteLine($"Email: {order.Email}");
             outputBlob.WriteLine($"Product: {order.ProductId}");
@@ -26,7 +33,7 @@ namespace DemoFunctions
 
             outputBlob.WriteLine($"Secret: {BitConverter.ToString(hash).Replace("-", "")}");
 
-            log.LogInformation($"C# Queue trigger function processed: {order}");
+            log.LogInformation($"Queue trigger function processed: {order}");
         }
     }
 }
